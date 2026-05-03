@@ -84,7 +84,7 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
 
             throwIfAborted();
             const download = await downloadPromise;
-            const filename = download.suggestedFilename() || path.basename(new URL(download.url()).pathname);
+            const filename = download.suggestedFilename() || path.basename(new URL(download.url()).pathname) || 'download';
 
             if (!fs.existsSync(opts.outputDir)) {
                 fs.mkdirSync(opts.outputDir, { recursive: true });
