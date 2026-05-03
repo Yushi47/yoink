@@ -9,14 +9,30 @@ import { attachOperationPage, isShutdownRequested, registerOperation, unregister
 
 // Waits for a download on the page OR on any popup it opens, whichever fires first.
 // Uses page.on (not once) to handle sites that open an ad popup before the real download popup.
-function waitForDownload(page: Page, timeoutMs: number): Promise<Download> {
+// Intercepts response headers on all pages to capture Content-Length without a second request.
+function waitForDownload(page: Page, timeoutMs: number): Promise<{ download: Download; totalBytes: number }> {
     return new Promise((resolve, reject) => {
         let done = false;
+        const responseSizes = new Map<string, number>();
+
+        const trackResponses = (p: Page) => {
+            p.on('response', response => {
+                const cl = response.headers()['content-length'];
+                if (cl) responseSizes.set(response.url(), parseInt(cl, 10));
+            });
+        };
+
+        trackResponses(page);
 
         const cleanup = () => page.off('popup', onPopup);
 
         const settle = (dl: Download) => {
-            if (!done) { done = true; clearTimeout(timer); cleanup(); resolve(dl); }
+            if (!done) {
+                done = true;
+                clearTimeout(timer);
+                cleanup();
+                resolve({ download: dl, totalBytes: responseSizes.get(dl.url()) ?? 0 });
+            }
         };
 
         const fail = (err: Error) => {
@@ -30,6 +46,7 @@ function waitForDownload(page: Page, timeoutMs: number): Promise<Download> {
         (timer as NodeJS.Timeout).unref?.();
 
         const onPopup = (popup: Page) => {
+            trackResponses(popup);
             popup.waitForEvent('download', { timeout: timeoutMs }).then(settle).catch(() => {});
         };
 
@@ -109,13 +126,13 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
             try {
                 await matchedResolver.resolver.click(page, resolverOpts);
             } catch (err) {
-                downloadPromise.catch(() => {});
+                void downloadPromise.catch(() => {});
                 throw err;
             }
 
             throwIfAborted();
             console.log('[yoink] waiting for download...');
-            const download = await downloadPromise;
+            const { download, totalBytes } = await downloadPromise;
             const filename = download.suggestedFilename() || path.basename(new URL(download.url()).pathname) || 'download';
 
             if (!fs.existsSync(opts.outputDir)) {
@@ -124,14 +141,6 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
 
             const outPath = uniqueOutputPath(opts.outputDir, filename);
             const label = path.basename(outPath);
-
-            // Best-effort HEAD request to get total file size for the progress bar
-            let totalBytes = 0;
-            try {
-                const head = await fetch(download.url(), { method: 'HEAD', signal: AbortSignal.timeout(3000) });
-                const cl = head.headers.get('content-length');
-                if (cl) totalBytes = parseInt(cl, 10);
-            } catch { /* progress bar works without total size */ }
 
             const startTime = Date.now();
             const readStream = await download.createReadStream();
