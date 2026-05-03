@@ -1,6 +1,6 @@
 import { Resolver, DownloadOpts } from './types';
 import { throwIfAborted } from './abort-helpers';
-import { uniqueOutputPath } from '../utils';
+import { uniqueOutputPath, renderProgressLine } from '../utils';
 import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
@@ -54,8 +54,10 @@ export const resolver: Resolver = {
         }
 
         const outPath = uniqueOutputPath(opts.outputDir, filename);
+        const label = path.basename(outPath);
+        const totalBytes = parseInt(res.headers.get('content-length') || '0', 10);
 
-        console.log(`[yoink] downloading ${path.basename(outPath)}...`);
+        console.log(`[yoink] downloading ${label}...`);
         const startTime = Date.now();
 
         try {
@@ -65,10 +67,28 @@ export const resolver: Resolver = {
                 const fileStream = fs.createWriteStream(outPath);
                 const onAbort = () => fileStream.destroy(new Error('Operation aborted'));
                 opts.signal?.addEventListener('abort', onAbort, { once: true });
+
+                let prevBytes = 0;
+                let prevTime = startTime;
+                let progressTimer: ReturnType<typeof setInterval> | null = null;
+
                 try {
+                    if (process.stdout.isTTY) {
+                        progressTimer = setInterval(() => {
+                            const written = fileStream.bytesWritten;
+                            const now = Date.now();
+                            const elapsed = (now - prevTime) / 1000;
+                            const speed = elapsed > 0 ? ((written - prevBytes) / 1024 / 1024 / elapsed).toFixed(1) : '0.0';
+                            prevBytes = written;
+                            prevTime = now;
+                            process.stdout.write(`\r${renderProgressLine(label, written, totalBytes, speed)}   `);
+                        }, 500);
+                    }
                     // Web ReadableStream from fetch; cast avoids DOM vs Node stream typing friction
                     await pipeline(Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]), fileStream);
                 } finally {
+                    if (progressTimer) clearInterval(progressTimer);
+                    if (process.stdout.isTTY) process.stdout.write('\n');
                     opts.signal?.removeEventListener('abort', onAbort);
                 }
             } else {
@@ -86,6 +106,7 @@ export const resolver: Resolver = {
         const stats = fs.statSync(outPath);
         const mb = (stats.size / 1024 / 1024).toFixed(2);
         const sec = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`[done] ${path.basename(outPath)}  ${mb} MB  (${sec}s)`);
+        const avgSpeed = (stats.size / 1024 / 1024 / parseFloat(sec)).toFixed(1);
+        console.log(`[done] ${label}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
     }
 };

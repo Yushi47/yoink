@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { Resolver, DownloadOpts } from './resolvers/types';
-import { uniqueOutputPath } from './utils';
+import { uniqueOutputPath, renderProgressLine } from './utils';
 import { browserPool } from './pool';
 import { Page, Download } from 'playwright';
 import { attachOperationPage, isShutdownRequested, registerOperation, unregisterOperation } from './operations';
@@ -123,6 +123,15 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
             }
 
             const outPath = uniqueOutputPath(opts.outputDir, filename);
+            const label = path.basename(outPath);
+
+            // Best-effort HEAD request to get total file size for the progress bar
+            let totalBytes = 0;
+            try {
+                const head = await fetch(download.url(), { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+                const cl = head.headers.get('content-length');
+                if (cl) totalBytes = parseInt(cl, 10);
+            } catch { /* progress bar works without total size */ }
 
             const startTime = Date.now();
             const readStream = await download.createReadStream();
@@ -151,7 +160,7 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
                         const speed = elapsed > 0 ? ((bytesWritten - prevBytes) / 1024 / 1024 / elapsed).toFixed(1) : '0.0';
                         prevBytes = bytesWritten;
                         prevTime = now;
-                        process.stdout.write(`\r[yoink] ${path.basename(outPath)}  ${(bytesWritten / 1024 / 1024).toFixed(1)} MB  ${speed} MB/s   `);
+                        process.stdout.write(`\r${renderProgressLine(label, bytesWritten, totalBytes, speed)}   `);
                     }
                 }, 500);
 
@@ -177,7 +186,7 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
             const mb = (stats.size / 1024 / 1024).toFixed(2);
             const sec = ((Date.now() - startTime) / 1000).toFixed(1);
             const avgSpeed = (stats.size / 1024 / 1024 / parseFloat(sec)).toFixed(1);
-            console.log(`[done] ${path.basename(outPath)}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
+            console.log(`[done] ${label}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
         } else {
             throwIfAborted();
             await matchedResolver.resolver.click(null, resolverOpts);
