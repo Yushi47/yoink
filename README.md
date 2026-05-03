@@ -33,6 +33,16 @@ yoink -f urls.txt
 yoink -f more.txt https://gofile.io/d/example
 ```
 
+> **URLs with `&` in them** (e.g. Discord CDN, signed S3 links) must be single-quoted so
+> the shell does not split them into background jobs:
+> ```bash
+> # wrong — & splits the URL into separate shell jobs
+> yoink https://cdn.discordapp.com/attachments/.../file.zip?ex=abc&is=def&hm=xyz
+>
+> # correct
+> yoink 'https://cdn.discordapp.com/attachments/.../file.zip?ex=abc&is=def&hm=xyz'
+> ```
+
 ### Options
 
 | Flag | Name | Description | Default |

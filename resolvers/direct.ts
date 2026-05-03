@@ -114,8 +114,9 @@ export const resolver: Resolver = {
 
         const stats = fs.statSync(outPath);
         const mb = (stats.size / 1024 / 1024).toFixed(2);
-        const sec = ((Date.now() - startTime) / 1000).toFixed(1);
-        const avgSpeed = (stats.size / 1024 / 1024 / parseFloat(sec)).toFixed(1);
+        const elapsed = Math.max(0.001, (Date.now() - startTime) / 1000);
+        const sec = elapsed.toFixed(1);
+        const avgSpeed = (stats.size / 1024 / 1024 / elapsed).toFixed(1);
         log(`[done] ${label}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
     }
 };
