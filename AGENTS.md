@@ -10,13 +10,13 @@ yoink -f urls.txt
 ```
 
 ## Stack
-Node.js + TypeScript + Playwright. `pool.ts` and `operations.ts` ported from sage. One change: `acceptDownloads: true` on the browser context.
+Node.js + TypeScript + Playwright. `pool.ts` and `operations.ts` ported from sage (`acceptDownloads: true` added to browser context).
 
 ## Resolver chain
-Auto-loaded from `resolvers/`. To add a site: drop a file exporting `matches(url)` and `click(page, opts)`. No other changes needed.
+Auto-loaded from `resolvers/`. Drop a file exporting `{ resolver }` to add a site — no other changes needed. Set `needsBrowser: false` to skip the browser entirely.
 
 ```
-direct (HEAD check, no browser) → gofile.ts → rootz.ts → generic (fallback heuristic)
+gofile → rootz → direct (needsBrowser: false) → generic (fallback heuristic)
 ```
 
 ## Batch
@@ -27,6 +27,6 @@ Always `execFileSync('cmd', [arg1, arg2])` — never `exec(\`cmd ${userInput}\`)
 
 ## Dependencies
 - `playwright` — browser + download interception
-- `commander` — CLI arg parsing, TS-native
+- `commander` — CLI arg parsing
 - `typescript` + `tsx` — run TS directly, no build step
 - `@types/node` — Node built-ins

@@ -37,8 +37,35 @@ yoink -f more.txt https://gofile.io/d/example
 
 | Flag | Name | Description | Default |
 |---|---|---|---|
-| `-o` | `--output <dir>` | Output directory for the downloaded file | `./downloads` |
+| `-o` | `--output <dir>` | Output directory | `./downloads` |
 | `-p` | `--password <pwd>` | Password for the file | |
-| `-t` | `--timeout <ms>` | Timeout in milliseconds (positive integer) | `300000` |
+| `-t` | `--timeout <ms>` | Timeout in milliseconds | `300000` |
 | `-f` | `--file <path>` | Read extra URLs from file | |
 | `-h` | `--help` | Display help | |
+
+## Supported sites
+
+| Resolver | Site | Method |
+|---|---|---|
+| `gofile` | gofile.io | Waits for download button, clicks it |
+| `rootz` | rootz.so | Simulates uBlock Origin, clicks 3× with 1s gap |
+| `direct` | Any direct URL | HEAD probe + fetch stream, no browser |
+| `generic` | Anything else | Scans `a[download]`, file-extension hrefs, button text |
+
+## Adding a resolver
+
+Drop a `.ts` file in `resolvers/` exporting a `resolver` object:
+
+```ts
+import { Resolver } from './types';
+
+export const resolver: Resolver = {
+    matches(url) { return url.includes('example.com'); },
+    async click(page, opts) {
+        await page!.goto(opts.url);
+        await page!.locator('#download').click();
+    }
+};
+```
+
+Set `needsBrowser: false` if no browser is needed (like `direct.ts`).

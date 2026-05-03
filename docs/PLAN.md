@@ -7,8 +7,10 @@ yoink/
 ├── pool.ts
 ├── operations.ts
 ├── downloader.ts
+├── utils.ts           # uniqueOutputPath() shared by direct.ts and downloader.ts
 ├── resolvers/
-│   ├── types.ts       # Resolver interface: matches(url) + click(page, opts)
+│   ├── types.ts       # Resolver interface: needsBrowser?, matches(url), click(page, opts)
+│   ├── abort-helpers.ts
 │   ├── direct.ts
 │   ├── gofile.ts
 │   ├── rootz.ts
@@ -20,38 +22,47 @@ yoink/
 
 ---
 
-## Phase 1 — Working Core
+## Phase 1 — Working Core ✓
 
 Goal: `yoink https://gofile.io/d/abc` downloads a file.
 
-1. `package.json` + `tsconfig.json` — deps: playwright, commander, typescript, tsx, @types/node. Add `"bin": { "yoink": "./cli.ts" }` so `npm install -g .` makes `yoink` a real command
-2. `config.ts` — copy CONFIG shape from sage, swap SELECTORS for DOWNLOAD_TIMEOUT + OUTPUT_DIR
-3. `pool.ts` — port from sage, add `acceptDownloads: true` to browser context
-4. `operations.ts` — port from sage, type the operation map
-5. `resolvers/types.ts` — define `Resolver` interface: `matches(url: string): boolean`, `click(page: Page, opts: DownloadOpts): Promise<void>`
-6. `resolvers/direct.ts` — HEAD request → Content-Disposition/MIME check → stream with fetch. Implements `Resolver`
-7. `downloader.ts` — auto-load all resolver files, build chain, `page.waitForEvent('download')` capture, save to disk
-8. `resolvers/gofile.ts` — inspect live page for selector, wait → click. Implements `Resolver`
-9. `cli.ts` — single URL, `-o`, `-p`, `-t` flags via commander, graceful shutdown (SIGTERM/SIGINT). Any shell calls use `execFileSync` with args array, never `exec` with string
-10. `downloader.ts` progress output — `[yoink] downloading filename...` → `[done] filename  X MB  (Xs)`. Auto-create output dir, auto-rename on filename collision (`file.zip` → `file-1.zip`)
+1. `package.json` + `tsconfig.json` — deps: playwright, commander, typescript, tsx, @types/node. `"bin": { "yoink": "./cli.ts" }` so `npm install -g .` makes `yoink` a real command
+2. `config.ts` — timeouts, browser args, UA, viewport, pool tuning constants
+3. `pool.ts` — ported from sage with `acceptDownloads: true`; crash recovery with exponential backoff
+4. `operations.ts` — per-download AbortController tracking; `abortAllOperations()` for clean shutdown
+5. `resolvers/types.ts` — `Resolver` interface: `needsBrowser?`, `matches(url)`, `click(page, opts)`
+6. `resolvers/abort-helpers.ts` — `throwIfAborted(opts)` + `withAbort(signal, promise)`
+7. `resolvers/direct.ts` — HEAD probe → Content-Disposition/MIME check → stream with fetch. Sets `needsBrowser: false`
+8. `utils.ts` — `uniqueOutputPath(dir, filename)`: appends `-1`, `-2`, ... on collision
+9. `downloader.ts` — auto-loads resolver files, `page.waitForEvent('download')` capture, progress bar, saves to disk
+10. `resolvers/gofile.ts` — waits for `button.item_download`, clicks it
+11. `cli.ts` — single URL, `-o`, `-p`, `-t`, `-f` flags via commander; graceful SIGINT/SIGTERM shutdown
 
-**Setup after install:**
+**Setup:**
 ```bash
 npm install
 npx playwright install chromium
 npm install -g .
 ```
 
-**Done when:** `yoink https://gofile.io/d/mAiKoO` saves a file to `./downloads` with visible progress output.
-
 ---
 
-## Phase 2 — Expand
+## Phase 2 — Expand ✓
 
 Goal: batch, more sites, unknown site fallback.
 
-1. `resolvers/rootz.ts` — inspect rootz.so live page, implement selector. Implements `Resolver`
-2. `resolvers/generic.ts` — scan for `a[download]`, download-extension hrefs, button text heuristics. Implements `Resolver`
-3. `cli.ts` batch — add multi-URL positional args + `-f urls.txt`, worker queue with concurrency cap of 3
+1. `resolvers/rootz.ts` — mocks `window.open = () => null`, blocks known ad domains, clicks 3× with 1s gap. Rootz detects the blocked popup and falls back to a direct download on the third click
+2. `resolvers/generic.ts` — tries `a[download]`, then hrefs matching file extensions, then button text heuristics
+3. `cli.ts` batch — multi-URL positional args + `-f urls.txt`, worker queue capped at 3 concurrent
 
-**Done when:** `yoink url1 url2 url3` runs concurrently, rootz.so works, unknown sites fall back to generic.
+**Done:** `yoink url1 url2 url3` runs concurrently; rootz.so and gofile.io work; unknown sites fall back to generic.
+
+---
+
+## Resolver priority order
+
+```
+gofile → rootz → direct (needsBrowser: false) → generic (fallback)
+```
+
+Resolvers are auto-loaded from `resolvers/`. To add a site: drop a new file exporting `{ resolver }`. No other changes needed. Set `needsBrowser: false` if the resolver handles the download without a browser.
