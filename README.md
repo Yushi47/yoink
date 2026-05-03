@@ -2,6 +2,13 @@
 
 Universal headless file downloader. If a human can click download on it, `yoink` can too.
 
+## Requirements
+
+Linux or macOS. Windows users should use WSL.
+
+- Node.js 18+
+- Chromium (installed via Playwright below)
+
 ## Installation
 
 ```bash

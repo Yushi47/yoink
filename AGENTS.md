@@ -25,9 +25,6 @@ gofile → rootz → direct (needsBrowser: false) → generic (fallback heuristi
 ## Batch
 Worker queue in `cli.ts`, concurrency cap of 3. One failure doesn't stop the rest.
 
-## Shell security
-Always `execFileSync('cmd', [arg1, arg2])` — never `exec(\`cmd ${userInput}\`)`.
-
 ## Dependencies
 - `playwright` — browser + download interception
 - `commander` — CLI arg parsing
