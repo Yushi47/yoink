@@ -11,12 +11,18 @@ Linux or macOS. Windows users should use WSL.
 
 ## Installation
 
+Clone the repo, then run from inside it:
+
 ```bash
+git clone https://github.com/Yushi47/yoink
+cd yoink
 npm install
 npx playwright install chromium
 sudo npm install -g tsx
 sudo npm install -g .
 ```
+
+`npm install -g .` installs the `yoink` command globally. After that you can run it from anywhere.
 
 ## Usage
 
