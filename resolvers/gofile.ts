@@ -24,7 +24,8 @@ export const resolver: Resolver = {
 
         if (opts.password) {
             const pwdInput = page.locator('input[type="password"]');
-            if (await pwdInput.count() > 0) {
+            const visible = await pwdInput.isVisible().catch(() => false);
+            if (visible) {
                 await withAbort(opts.signal, pwdInput.fill(opts.password));
                 await withAbort(opts.signal, pwdInput.press('Enter'));
             }
@@ -32,12 +33,14 @@ export const resolver: Resolver = {
 
         throwIfAborted(opts);
 
+        const t0 = Date.now();
+        log('[yoink] waiting for download button...');
         const downloadBtn = page.locator('button.item_download').first();
         await withAbort(opts.signal, downloadBtn.waitFor({ state: 'visible', timeout: 60000 }));
 
         throwIfAborted(opts);
 
-        log('[yoink] clicking download button...');
+        log(`[yoink] clicking download button... (appeared in ${Date.now() - t0}ms)`);
         await withAbort(opts.signal, downloadBtn.click());
     }
 };
