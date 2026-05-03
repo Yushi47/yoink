@@ -1,20 +1,22 @@
 {
   "name": "yoink",
   "version": "1.0.0",
-  "description": "",
+  "description": "Universal headless file downloader — if a human can click download on it, yoink can too",
   "bin": {
     "yoink": "./cli.ts"
   },
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "downloader",
+    "playwright",
+    "headless",
+    "cli",
+    "gofile",
+    "rootz"
+  ],
+  "author": "yushi",
   "license": "ISC",
   "dependencies": {
     "commander": "^14.0.3",

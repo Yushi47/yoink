@@ -18,10 +18,9 @@ function delay(ms: number) {
     });
 }
 
-export function registerOperation(id: string, page?: Page) {
+export function registerOperation(id: string) {
     const existing = activeOperations.get(id);
     if (existing) {
-        existing.page = page;
         existing.timestamp = Date.now();
         if (shutdownController.signal.aborted && !existing.controller.signal.aborted) {
             existing.controller.abort();
@@ -33,7 +32,7 @@ export function registerOperation(id: string, page?: Page) {
     if (shutdownController.signal.aborted) {
         controller.abort();
     }
-    activeOperations.set(id, { page, controller, timestamp: Date.now() });
+    activeOperations.set(id, { controller, timestamp: Date.now() });
     console.log(`[ops] Registered operation ${id}`);
     return controller.signal;
 }

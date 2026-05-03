@@ -7,7 +7,6 @@ export const CONFIG = {
         BROWSER_CLOSE: 5000,
         STOP_OPERATION: 10000,
     },
-    OUTPUT_DIR: './downloads',
     BROWSER_ARGS: [
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
