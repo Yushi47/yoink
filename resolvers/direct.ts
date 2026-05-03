@@ -88,7 +88,12 @@ export const resolver: Resolver = {
                     await pipeline(Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]), fileStream);
                 } finally {
                     if (progressTimer) clearInterval(progressTimer);
-                    if (process.stdout.isTTY) process.stdout.write('\n');
+                    if (process.stdout.isTTY) {
+                        const written = fileStream.bytesWritten;
+                        const elapsed = Math.max(0.001, (Date.now() - startTime) / 1000);
+                        const avgSpd = (written / 1024 / 1024 / elapsed).toFixed(1);
+                        process.stdout.write(`\r${renderProgressLine(label, written, totalBytes || written, avgSpd)}   \n`);
+                    }
                     opts.signal?.removeEventListener('abort', onAbort);
                 }
             } else {

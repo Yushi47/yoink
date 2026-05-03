@@ -175,7 +175,11 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
                 throw error;
             } finally {
                 if (progressTimer) clearInterval(progressTimer);
-                if (process.stdout.isTTY) process.stdout.write('\n');
+                if (process.stdout.isTTY) {
+                    const elapsed = Math.max(0.001, (Date.now() - startTime) / 1000);
+                    const avgSpd = (bytesWritten / 1024 / 1024 / elapsed).toFixed(1);
+                    process.stdout.write(`\r${renderProgressLine(label, bytesWritten, totalBytes || bytesWritten, avgSpd)}   \n`);
+                }
                 signal.removeEventListener('abort', onAbort);
             }
 
