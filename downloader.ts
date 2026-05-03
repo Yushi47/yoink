@@ -7,22 +7,34 @@ import { browserPool } from './pool';
 import { Page, Download } from 'playwright';
 import { attachOperationPage, isShutdownRequested, registerOperation, unregisterOperation } from './operations';
 
-// Waits for a download on the page OR on a popup it opens, whichever fires first.
+// Waits for a download on the page OR on any popup it opens, whichever fires first.
+// Uses page.on (not once) to handle sites that open an ad popup before the real download popup.
 function waitForDownload(page: Page, timeoutMs: number): Promise<Download> {
     return new Promise((resolve, reject) => {
         let done = false;
+
+        const cleanup = () => page.off('popup', onPopup);
+
         const settle = (dl: Download) => {
-            if (!done) { done = true; clearTimeout(timer); resolve(dl); }
+            if (!done) { done = true; clearTimeout(timer); cleanup(); resolve(dl); }
         };
-        const timer = setTimeout(() => {
-            if (!done) { done = true; reject(new Error(`Download timed out after ${timeoutMs}ms`)); }
-        }, timeoutMs);
+
+        const fail = (err: Error) => {
+            if (!done) { done = true; clearTimeout(timer); cleanup(); reject(err); }
+        };
+
+        const timer = setTimeout(
+            () => fail(new Error(`Download timed out after ${timeoutMs}ms`)),
+            timeoutMs
+        );
         (timer as NodeJS.Timeout).unref?.();
 
-        page.waitForEvent('download', { timeout: timeoutMs }).then(settle).catch(() => {});
-        page.once('popup', popup => {
+        const onPopup = (popup: Page) => {
             popup.waitForEvent('download', { timeout: timeoutMs }).then(settle).catch(() => {});
-        });
+        };
+
+        page.waitForEvent('download', { timeout: timeoutMs }).then(settle).catch(() => {});
+        page.on('popup', onPopup);
     });
 }
 
@@ -102,6 +114,7 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
             }
 
             throwIfAborted();
+            console.log('[yoink] waiting for download...');
             const download = await downloadPromise;
             const filename = download.suggestedFilename() || path.basename(new URL(download.url()).pathname) || 'download';
 
@@ -117,6 +130,8 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
 
             const writeStream = fs.createWriteStream(outPath);
             let bytesWritten = 0;
+            let prevBytes = 0;
+            let prevTime = startTime;
             let progressTimer: ReturnType<typeof setInterval> | null = null;
 
             const onAbort = () => {
@@ -131,7 +146,12 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
 
                 progressTimer = setInterval(() => {
                     if (process.stdout.isTTY) {
-                        process.stdout.write(`\r[yoink] ${path.basename(outPath)}  ${(bytesWritten / 1024 / 1024).toFixed(1)} MB...`);
+                        const now = Date.now();
+                        const elapsed = (now - prevTime) / 1000;
+                        const speed = elapsed > 0 ? ((bytesWritten - prevBytes) / 1024 / 1024 / elapsed).toFixed(1) : '0.0';
+                        prevBytes = bytesWritten;
+                        prevTime = now;
+                        process.stdout.write(`\r[yoink] ${path.basename(outPath)}  ${(bytesWritten / 1024 / 1024).toFixed(1)} MB  ${speed} MB/s   `);
                     }
                 }, 500);
 
@@ -156,7 +176,8 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
             const stats = fs.statSync(outPath);
             const mb = (stats.size / 1024 / 1024).toFixed(2);
             const sec = ((Date.now() - startTime) / 1000).toFixed(1);
-            console.log(`[done] ${path.basename(outPath)}  ${mb} MB  (${sec}s)`);
+            const avgSpeed = (stats.size / 1024 / 1024 / parseFloat(sec)).toFixed(1);
+            console.log(`[done] ${path.basename(outPath)}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
         } else {
             throwIfAborted();
             await matchedResolver.resolver.click(null, resolverOpts);
