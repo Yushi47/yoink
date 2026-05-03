@@ -13,7 +13,6 @@ export class BrowserPoolError extends Error {
 class BrowserPool {
     private _state: 'idle' | 'launching' | 'ready' | 'relaunching' | 'failed' = 'idle';
     private _browser: Browser | null = null;
-    private _context: BrowserContext | null = null;
     private _launchPromise: Promise<void> | null = null;
     private _shutdownPromise: Promise<void> | null = null;
     private _consecutiveCrashes = 0;
@@ -88,17 +87,24 @@ class BrowserPool {
             }
         }
 
-        if (this._state !== 'ready' || !this._context) {
+        if (this._state !== 'ready' || !this._browser) {
             throw new BrowserPoolError(`Pool in unexpected state: ${this._state}`, 'POOL_NOT_READY');
         }
 
+        let context: BrowserContext | undefined;
         let page: Page | undefined;
         try {
-            page = await this._context.newPage();
+            context = await this._browser.newContext({
+                viewport: CONFIG.VIEWPORT,
+                userAgent: CONFIG.USER_AGENT,
+                acceptDownloads: true,
+            });
+            page = await context.newPage();
             page.setDefaultNavigationTimeout(CONFIG.TIMEOUTS.NAVIGATION);
             page.setDefaultTimeout(CONFIG.TIMEOUTS.DEFAULT_TIMEOUT);
         } catch (setupError) {
             if (page) await page.close().catch(() => {});
+            if (context) await context.close().catch(() => {});
             throw setupError;
         }
 
@@ -112,7 +118,11 @@ class BrowserPool {
 
     async releasePage(page?: Page) {
         this._openPageCount = Math.max(0, this._openPageCount - 1);
-        if (page) await page.close().catch(() => {});
+        if (page) {
+            const context = page.context();
+            await page.close().catch(() => {});
+            await context.close().catch(() => {});
+        }
     }
 
     async shutdown() {
@@ -132,16 +142,10 @@ class BrowserPool {
                 await pendingLaunch.catch(() => {});
             }
 
-            const context = this._context;
             const browser = this._browser;
-            this._context = null;
             this._browser = null;
             this._openPageCount = 0;
             this._launchPromise = null;
-
-            if (context) {
-                await context.close().catch(() => {});
-            }
 
             if (browser) {
                 const browserPid = this._getBrowserPid(browser);
@@ -185,19 +189,12 @@ class BrowserPool {
                 timeout: CONFIG.TIMEOUTS.BROWSER_LAUNCH
             });
 
-            const context = await browser.newContext({
-                viewport: CONFIG.VIEWPORT,
-                userAgent: CONFIG.USER_AGENT,
-                acceptDownloads: true,
-            });
-
             const browserPid = this._getBrowserPid(browser);
             if (browserPid !== null) {
                 this._knownBrowserPids.add(browserPid);
             }
 
             if (this._shutdownRequested || this._state === 'idle') {
-                await context.close().catch(() => {});
                 await browser.close().catch(() => {});
                 if (browserPid !== null) {
                     this._knownBrowserPids.delete(browserPid);
@@ -208,7 +205,6 @@ class BrowserPool {
             browser.on('disconnected', () => this._onDisconnected());
 
             this._browser = browser;
-            this._context = context;
             this._state = 'ready';
             this._consecutiveCrashes = 0;
             this._startHealthCheck();
@@ -228,7 +224,6 @@ class BrowserPool {
         this._state = 'relaunching';
         this._stopHealthCheck();
         this._browser = null;
-        this._context = null;
 
         const relaunchPromise = (async () => {
             while (!this._shutdownRequested) {

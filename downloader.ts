@@ -4,8 +4,27 @@ import { randomUUID } from 'crypto';
 import { Resolver, DownloadOpts } from './resolvers/types';
 import { uniqueOutputPath } from './utils';
 import { browserPool } from './pool';
-import { Page } from 'playwright';
+import { Page, Download } from 'playwright';
 import { attachOperationPage, isShutdownRequested, registerOperation, unregisterOperation } from './operations';
+
+// Waits for a download on the page OR on a popup it opens, whichever fires first.
+function waitForDownload(page: Page, timeoutMs: number): Promise<Download> {
+    return new Promise((resolve, reject) => {
+        let done = false;
+        const settle = (dl: Download) => {
+            if (!done) { done = true; clearTimeout(timer); resolve(dl); }
+        };
+        const timer = setTimeout(() => {
+            if (!done) { done = true; reject(new Error(`Download timed out after ${timeoutMs}ms`)); }
+        }, timeoutMs);
+        (timer as NodeJS.Timeout).unref?.();
+
+        page.waitForEvent('download', { timeout: timeoutMs }).then(settle).catch(() => {});
+        page.once('popup', popup => {
+            popup.waitForEvent('download', { timeout: timeoutMs }).then(settle).catch(() => {});
+        });
+    });
+}
 
 const resolversDir = path.join(__dirname, 'resolvers');
 const resolverFiles = fs.readdirSync(resolversDir).filter(file => {
@@ -74,7 +93,7 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
         if (isBrowserNeeded && page) {
             throwIfAborted();
 
-            const downloadPromise = page.waitForEvent('download', { timeout: opts.timeout || 300000 });
+            const downloadPromise = waitForDownload(page, opts.timeout || 300000);
             try {
                 await matchedResolver.resolver.click(page, resolverOpts);
             } catch (err) {
