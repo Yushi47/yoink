@@ -64,18 +64,27 @@ yoink -f more.txt https://gofile.io/d/example
 
 ## Adding a resolver
 
-Drop a `.ts` file in `resolvers/` exporting a `resolver` object:
+1. Create `resolvers/mysite.ts` exporting a `resolver` object:
 
 ```ts
 import { Resolver } from './types';
+import { log } from '../utils';
 
 export const resolver: Resolver = {
-    matches(url) { return url.includes('example.com'); },
+    matches(url) {
+        try {
+            const { hostname } = new URL(url);
+            return hostname === 'mysite.com' || hostname.endsWith('.mysite.com');
+        } catch { return false; }
+    },
     async click(page, opts) {
+        log(`[yoink] navigating to ${opts.url}...`);
         await page!.goto(opts.url);
-        await page!.locator('#download').click();
+        await page!.locator('#download-btn').click();
     }
 };
 ```
+
+2. Register it in `downloader.ts` — add an import and insert it into the `resolvers` array in priority order (before `direct` and `generic`).
 
 Set `needsBrowser: false` if no browser is needed (like `direct.ts`).

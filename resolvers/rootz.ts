@@ -5,7 +5,12 @@ import { log } from '../utils';
 
 export const resolver: Resolver = {
     matches(url: string): boolean {
-        return /rootz\.so/i.test(url);
+        try {
+            const { hostname } = new URL(url);
+            return hostname.toLowerCase() === 'rootz.so' || hostname.toLowerCase().endsWith('.rootz.so');
+        } catch {
+            return false;
+        }
     },
 
     async click(page: Page | null, opts: DownloadOpts): Promise<void> {

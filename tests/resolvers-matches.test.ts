@@ -43,6 +43,11 @@ describe('rootz.matches()', () => {
         expect(rootz.matches('https://example.com')).toBe(false);
         expect(rootz.matches('https://google.com')).toBe(false);
     });
+
+    it('does not match partial hostname matches', () => {
+        expect(rootz.matches('https://notrootz.so/file')).toBe(false);
+        expect(rootz.matches('https://myrootz.so/file')).toBe(false);
+    });
 });
 
 // ─── generic ─────────────────────────────────────────────────────────────────
