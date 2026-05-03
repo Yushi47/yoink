@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import { downloadFile } from './downloader';
 import { browserPool } from './pool';
 import { abortAllOperations, requestShutdown } from './operations';
+import { log, logErr } from './utils';
 
 const BATCH_CONCURRENCY = 3;
 
@@ -51,7 +52,7 @@ async function runWithConcurrency<T>(items: T[], limit: number, fn: (item: T, in
 async function shutdown(signal?: NodeJS.Signals) {
     if (signal && !receivedSignal) {
         receivedSignal = signal;
-        console.log('\n[yoink] Shutting down...');
+        log('\n[yoink] Shutting down...');
     }
 
     if (shutdownPromise) {
@@ -81,7 +82,7 @@ program
             timeoutMs = parseTimeoutMs(options.timeout);
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : String(e);
-            console.error(`[yoink] ${msg}`);
+            logErr(`[yoink] ${msg}`);
             process.exitCode = 1;
             return;
         }
@@ -90,7 +91,7 @@ program
         const allUrls = [...urls, ...fileUrls];
 
         if (allUrls.length === 0) {
-            console.error('[yoink] Provide at least one URL, or use -f/--file with a URL list');
+            logErr('[yoink] Provide at least one URL, or use -f/--file with a URL list');
             process.exitCode = 1;
             return;
         }
@@ -115,7 +116,7 @@ program
                         }
                         failures++;
                         const msg = error instanceof Error ? error.message : String(error);
-                        console.error(`[yoink] error (${url}): ${msg}`);
+                        logErr(`[yoink] error (${url}): ${msg}`);
                     }
                 });
                 if (failures > 0) {
@@ -128,7 +129,7 @@ program
             } else {
                 process.exitCode = 1;
                 const msg = error instanceof Error ? error.message : String(error);
-                console.error(`[yoink] error: ${msg}`);
+                logErr(`[yoink] error: ${msg}`);
             }
         } finally {
             await shutdown();
@@ -137,14 +138,14 @@ program
 
 const handleSignal = (signal: NodeJS.Signals) => {
     if (receivedSignal) {
-        console.error('\n[yoink] Forcing exit');
+        logErr('\n[yoink] Forcing exit');
         process.exit(signal === 'SIGINT' ? 130 : 143);
     }
     process.exitCode = signal === 'SIGINT' ? 130 : 143;
     void shutdown(signal).catch((error: unknown) => {
         process.exitCode = 1;
         const msg = error instanceof Error ? error.message : String(error);
-        console.error(`[yoink] shutdown error: ${msg}`);
+        logErr(`[yoink] shutdown error: ${msg}`);
     });
 };
 
@@ -158,7 +159,7 @@ void (async () => {
         process.exitCode = 1;
         if (!isAbortError(error)) {
             const msg = error instanceof Error ? error.message : String(error);
-            console.error(`[yoink] fatal: ${msg}`);
+            logErr(`[yoink] fatal: ${msg}`);
         }
         await shutdown();
     }

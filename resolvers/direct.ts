@@ -1,6 +1,6 @@
 import { Resolver, DownloadOpts } from './types';
 import { throwIfAborted } from './abort-helpers';
-import { uniqueOutputPath, renderProgressLine, log } from '../utils';
+import { uniqueOutputPath, renderProgressLine, log, logWarn } from '../utils';
 import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
@@ -17,6 +17,10 @@ export const resolver: Resolver = {
                 redirect: 'follow',
                 signal: AbortSignal.timeout(HEAD_PROBE_MS),
             });
+            if (!res.ok) {
+                logWarn(`[yoink] HEAD ${res.status} for ${url} — skipping direct download`);
+                return false;
+            }
             const contentType = res.headers.get('content-type') || '';
             const contentDisposition = res.headers.get('content-disposition') || '';
 

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { resolver as direct } from '../resolvers/direct';
 
-function mockFetch(contentType: string, contentDisposition = '') {
+function mockFetch(contentType: string, contentDisposition = '', ok = true) {
     return vi.fn().mockResolvedValue({
+        ok,
         headers: {
             get: (name: string) => {
                 if (name === 'content-type') return contentType || null;
@@ -76,6 +77,11 @@ describe('direct.matches() — error handling', () => {
     it('returns false when fetch times out (AbortError)', async () => {
         const abort = new DOMException('The operation was aborted', 'AbortError');
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abort));
+        expect(await direct.matches('https://example.com/file')).toBe(false);
+    });
+
+    it('returns false when HEAD returns a non-2xx status', async () => {
+        vi.stubGlobal('fetch', mockFetch('application/zip', '', false));
         expect(await direct.matches('https://example.com/file')).toBe(false);
     });
 });
