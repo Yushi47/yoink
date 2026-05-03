@@ -57,7 +57,7 @@ yoink -f more.txt https://gofile.io/d/example
 | `-o` | `--output <dir>` | Output directory | `./downloads` |
 | `-p` | `--password <pwd>` | Password for the file | |
 | `-t` | `--timeout <ms>` | Timeout in milliseconds | `300000` |
-| `-f` | `--file <path>` | Read extra URLs from file | |
+| `-f` | `--file <path>` | Read URLs from a file (one per line) | |
 | `-h` | `--help` | Display help | |
 
 ## Supported sites
