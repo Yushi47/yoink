@@ -3,7 +3,7 @@
 Universal headless file downloader. If a human can click download on it, `yoink` can too.
 
 ```bash
-yoink https://gofile.io/d/mAiKoO
+yoink https://gofile.io/d/example
 yoink -o ~/Downloads -p secret https://gofile.io/d/private
 yoink url1 url2 url3
 yoink -f urls.txt
