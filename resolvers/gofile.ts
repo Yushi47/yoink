@@ -4,7 +4,12 @@ import { throwIfAborted, withAbort } from './abort-helpers';
 
 export const resolver: Resolver = {
     matches(url: string): boolean {
-        return url.includes('gofile.io');
+        try {
+            const { hostname } = new URL(url);
+            return hostname === 'gofile.io' || hostname.endsWith('.gofile.io');
+        } catch {
+            return false;
+        }
     },
 
     async click(page: Page | null, opts: DownloadOpts): Promise<void> {

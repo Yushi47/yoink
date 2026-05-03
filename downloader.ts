@@ -2,6 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { Resolver, DownloadOpts } from './resolvers/types';
+import { resolver as gofileResolver } from './resolvers/gofile';
+import { resolver as rootzResolver } from './resolvers/rootz';
+import { resolver as directResolver } from './resolvers/direct';
+import { resolver as genericResolver } from './resolvers/generic';
 import { uniqueOutputPath, renderProgressLine } from './utils';
 import { browserPool } from './pool';
 import { Page, Download } from 'playwright';
@@ -55,31 +59,14 @@ function waitForDownload(page: Page, timeoutMs: number): Promise<{ download: Dow
     });
 }
 
-const resolversDir = path.join(__dirname, 'resolvers');
-const resolverFiles = fs.readdirSync(resolversDir).filter(file => {
-    const ext = path.extname(file);
-    const base = path.basename(file, ext);
-    return (ext === '.ts' || ext === '.js') && !file.endsWith('.d.ts') && base !== 'types' && base !== 'abort-helpers';
-});
+const resolvers: { name: string, resolver: Resolver }[] = [
+    { name: 'gofile', resolver: gofileResolver },
+    { name: 'rootz', resolver: rootzResolver },
+    { name: 'direct', resolver: directResolver },
+    { name: 'generic', resolver: genericResolver },
+];
 
-const resolvers: { name: string, resolver: Resolver }[] = [];
-
-for (const file of resolverFiles) {
-    const mod = require(path.join(resolversDir, file));
-    const name = path.basename(file, path.extname(file));
-    if (mod.resolver) {
-        resolvers.push({ name, resolver: mod.resolver });
-    }
-}
-
-const order = ['gofile', 'rootz', 'direct', 'generic'];
-resolvers.sort((a, b) => {
-    let ia = order.indexOf(a.name);
-    let ib = order.indexOf(b.name);
-    if (ia === -1) ia = 99;
-    if (ib === -1) ib = 99;
-    return ia - ib;
-});
+export const _resolversForTesting = resolvers;
 
 export async function downloadFile(url: string, opts: DownloadOpts) {
     let matchedResolver: { name: string, resolver: Resolver } | null = null;
