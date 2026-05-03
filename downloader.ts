@@ -6,7 +6,7 @@ import { resolver as gofileResolver } from './resolvers/gofile';
 import { resolver as rootzResolver } from './resolvers/rootz';
 import { resolver as directResolver } from './resolvers/direct';
 import { resolver as genericResolver } from './resolvers/generic';
-import { uniqueOutputPath, renderProgressLine } from './utils';
+import { uniqueOutputPath, renderProgressLine, log } from './utils';
 import { browserPool } from './pool';
 import { Page, Download } from 'playwright';
 import { attachOperationPage, isShutdownRequested, registerOperation, unregisterOperation } from './operations';
@@ -50,6 +50,7 @@ function waitForDownload(page: Page, timeoutMs: number): Promise<{ download: Dow
         (timer as NodeJS.Timeout).unref?.();
 
         const onPopup = (popup: Page) => {
+            log('[yoink] popup detected, waiting for download stream...');
             trackResponses(popup);
             popup.waitForEvent('download', { timeout: timeoutMs }).then(settle).catch(() => {});
         };
@@ -118,7 +119,7 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
             }
 
             throwIfAborted();
-            console.log('[yoink] waiting for download...');
+            log('[yoink] waiting for download...');
             const { download, totalBytes } = await downloadPromise;
             const filename = download.suggestedFilename() || path.basename(new URL(download.url()).pathname) || 'download';
 
@@ -182,7 +183,7 @@ export async function downloadFile(url: string, opts: DownloadOpts) {
             const mb = (stats.size / 1024 / 1024).toFixed(2);
             const sec = ((Date.now() - startTime) / 1000).toFixed(1);
             const avgSpeed = (stats.size / 1024 / 1024 / parseFloat(sec)).toFixed(1);
-            console.log(`[done] ${label}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
+            log(`[done] ${label}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
         } else {
             throwIfAborted();
             await matchedResolver.resolver.click(null, resolverOpts);

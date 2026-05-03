@@ -1,6 +1,22 @@
 import fs from 'fs';
 import path from 'path';
 
+function ts(): string {
+    return new Date().toTimeString().slice(0, 8);
+}
+
+export function log(msg: string): void {
+    console.log(`${ts()} ${msg}`);
+}
+
+export function logWarn(msg: string): void {
+    console.warn(`${ts()} ${msg}`);
+}
+
+export function logErr(msg: string, ...extra: unknown[]): void {
+    console.error(`${ts()} ${msg}`, ...extra);
+}
+
 export function uniqueOutputPath(outputDir: string, filename: string): string {
     let outPath = path.join(outputDir, filename);
     const ext = path.extname(filename);

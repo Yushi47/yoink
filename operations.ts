@@ -1,5 +1,6 @@
 import { Page } from 'playwright';
 import { CONFIG } from './config';
+import { log, logErr } from './utils';
 
 interface Operation {
     page?: Page;
@@ -33,7 +34,7 @@ export function registerOperation(id: string) {
         controller.abort();
     }
     activeOperations.set(id, { controller, timestamp: Date.now() });
-    console.log(`[ops] Registered operation ${id}`);
+    log(`[ops] Registered operation ${id}`);
     return controller.signal;
 }
 
@@ -64,7 +65,7 @@ export function unregisterOperation(id: string) {
     if (!op) return;
     op.controller.abort();
     activeOperations.delete(id);
-    console.log(`[ops] Unregistered operation ${id}`);
+    log(`[ops] Unregistered operation ${id}`);
 }
 
 export async function stopOperation(id: string) {
@@ -73,7 +74,7 @@ export async function stopOperation(id: string) {
 
     if (operation.stopPromise) return operation.stopPromise;
 
-    console.log(`[ops] Stopping operation ${id}`);
+    log(`[ops] Stopping operation ${id}`);
     operation.controller.abort();
 
     operation.stopPromise = (async (): Promise<boolean> => {
@@ -91,17 +92,17 @@ export async function stopOperation(id: string) {
                                     t.unref?.();
                                 })
                             ]);
-                            console.log(`[ops] Page closed for operation ${id}`);
+                            log(`[ops] Page closed for operation ${id}`);
                         } catch (closeError: unknown) {
                             const msg = closeError instanceof Error ? closeError.message : String(closeError);
-                            console.error(`[ops] Error closing page for operation ${id}:`, msg);
+                            logErr(`[ops] Error closing page for operation ${id}:`, msg);
                         }
                     }
                     return true;
                 })(),
                 new Promise<boolean>(resolve => {
                     stopTimer = setTimeout(() => {
-                        console.log(`[ops] Stop timed out for operation ${id}, forcing cleanup`);
+                        log(`[ops] Stop timed out for operation ${id}, forcing cleanup`);
                         resolve(false);
                     }, CONFIG.TIMEOUTS.STOP_OPERATION);
                     stopTimer.unref?.();
@@ -122,5 +123,5 @@ export async function abortAllOperations() {
     if (count === 0) return;
 
     await Promise.allSettled(ids.map(id => stopOperation(id)));
-    console.log(`[ops] Finished stopping ${count} in-flight operation(s) for shutdown`);
+    log(`[ops] Finished stopping ${count} in-flight operation(s) for shutdown`);
 }

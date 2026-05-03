@@ -1,6 +1,7 @@
 import { Resolver, DownloadOpts } from './types';
 import { Page } from 'playwright';
 import { throwIfAborted, withAbort } from './abort-helpers';
+import { log } from '../utils';
 
 export const resolver: Resolver = {
     matches(url: string): boolean {
@@ -15,7 +16,7 @@ export const resolver: Resolver = {
     async click(page: Page | null, opts: DownloadOpts): Promise<void> {
         if (!page) throw new Error('gofile requires a browser page');
 
-        console.log(`[yoink] navigating to ${opts.url}...`);
+        log(`[yoink] navigating to ${opts.url}...`);
 
         await withAbort(opts.signal, page.goto(opts.url, { waitUntil: 'domcontentloaded', timeout: 60000 }));
 
@@ -36,7 +37,7 @@ export const resolver: Resolver = {
 
         throwIfAborted(opts);
 
-        console.log('[yoink] clicking download button...');
+        log('[yoink] clicking download button...');
         await withAbort(opts.signal, downloadBtn.click());
     }
 };

@@ -1,6 +1,6 @@
 import { Resolver, DownloadOpts } from './types';
 import { throwIfAborted } from './abort-helpers';
-import { uniqueOutputPath, renderProgressLine } from '../utils';
+import { uniqueOutputPath, renderProgressLine, log } from '../utils';
 import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
@@ -57,7 +57,7 @@ export const resolver: Resolver = {
         const label = path.basename(outPath);
         const totalBytes = parseInt(res.headers.get('content-length') || '0', 10);
 
-        console.log(`[yoink] downloading ${label}...`);
+        log(`[yoink] downloading ${label}...`);
         const startTime = Date.now();
 
         try {
@@ -107,6 +107,6 @@ export const resolver: Resolver = {
         const mb = (stats.size / 1024 / 1024).toFixed(2);
         const sec = ((Date.now() - startTime) / 1000).toFixed(1);
         const avgSpeed = (stats.size / 1024 / 1024 / parseFloat(sec)).toFixed(1);
-        console.log(`[done] ${label}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
+        log(`[done] ${label}  ${mb} MB  ${avgSpeed} MB/s  (${sec}s)`);
     }
 };

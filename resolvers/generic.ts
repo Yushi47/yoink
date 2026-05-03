@@ -1,6 +1,7 @@
 import { Resolver, DownloadOpts } from './types';
 import { Page } from 'playwright';
 import { throwIfAborted, withAbort } from './abort-helpers';
+import { log } from '../utils';
 
 const EXT_RE = /\.(zip|7z|rar|tar|gz|tgz|bz2|xz|iso|exe|dmg|apk|mp4|mkv|avi|mov|webm|pdf|docx?|xlsx?|pptx?|csv|torrent)(\?|#|$)/i;
 
@@ -15,7 +16,7 @@ export const resolver: Resolver = {
     async click(page: Page | null, opts: DownloadOpts): Promise<void> {
         if (!page) throw new Error('generic resolver requires a browser page');
 
-        console.log(`[yoink] (generic) navigating to ${opts.url}...`);
+        log(`[yoink] (generic) navigating to ${opts.url}...`);
 
         await withAbort(opts.signal, page.goto(opts.url, { waitUntil: 'domcontentloaded', timeout: 60000 }));
 
